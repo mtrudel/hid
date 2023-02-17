@@ -7,25 +7,29 @@ defmodule HID do
 
   @type handle :: term
 
-  @type enum_result :: {:ok, list(HID.DeviceInfo)} |
-                       {:error, :ehidenum}
+  @type enum_result ::
+          {:ok, list(HID.DeviceInfo)}
+          | {:error, :ehidenum}
 
-  @type open_result :: {:ok, handle} |
-                       {:error, :ehidopen} |
-                       {:error, :ehidopen, String.t}
+  @type open_result ::
+          {:ok, handle}
+          | {:error, :ehidopen}
+          | {:error, :ehidopen, String.t()}
 
-  @type write_result :: {:ok, non_neg_integer} |
-                        {:error, :ehidwrite} |
-                        {:error, :ehidwrite, String.t}
+  @type write_result ::
+          {:ok, non_neg_integer}
+          | {:error, :ehidwrite}
+          | {:error, :ehidwrite, String.t()}
 
-  @type read_result :: {:ok, binary} |
-                       {:error, :ehidread} |
-                       {:error, :ehidread, String.t}
+  @type read_result ::
+          {:ok, binary}
+          | {:error, :ehidread}
+          | {:error, :ehidread, String.t()}
 
   @doc false
   def load_nif do
     path = :filename.join(:code.priv_dir(:hid), 'hid')
-    :ok = :erlang.load_nif(path, 0);
+    :ok = :erlang.load_nif(path, 0)
   end
 
   @doc """
@@ -44,7 +48,7 @@ defmodule HID do
     with {:ok, list} <- nif_enumerate(vendor_id, product_id) do
       Enum.reduce(list, [], fn info, acc ->
         case deserialize_device_info(info) do
-          nil  -> acc
+          nil -> acc
           info -> [info | acc]
         end
       end)
@@ -69,20 +73,25 @@ defmodule HID do
   Function returns device handle that can be used in other device
   reading/writing functions.
   """
-  @spec open(path :: String.t | charlist) :: open_result
+  @spec open(path :: String.t() | charlist) :: open_result
   @spec open(vendor_id :: byte, product_id :: byte) :: open_result
-  @spec open(vendor_id :: byte,
-             product_id :: byte,
-             serial :: String.t | charlist) :: open_result
+  @spec open(
+          vendor_id :: byte,
+          product_id :: byte,
+          serial :: String.t() | charlist
+        ) :: open_result
   def open(path) do
     nif_open(path)
   end
+
   def open(vendor_id, product_id) do
     nif_open(vendor_id, product_id)
   end
+
   def open(vendor_id, product_id, serial) when is_bitstring(serial) do
-    nif_open(vendor_id, product_id, serial |> :binary.bin_to_list)
+    nif_open(vendor_id, product_id, serial |> :binary.bin_to_list())
   end
+
   def open(vendor_id, product_id, serial) do
     nif_open(vendor_id, product_id, serial)
   end
@@ -113,7 +122,14 @@ defmodule HID do
   """
   @spec write(device :: handle, data :: binary | list(byte)) :: write_result
   def write(device, data) do
+    IO.inspect({device, data}, label: "HID.write")
     nif_write(device, data)
+  end
+
+  @spec write_report(device :: handle, data :: binary | list(byte)) :: write_result
+  def write_report(device, data) do
+    IO.inspect({device, data}, label: "HID.write_report")
+    nif_write_report(device, data)
   end
 
   @doc """
@@ -125,37 +141,38 @@ defmodule HID do
   Reads at most `size` bytes from HID device. Note that first byte of data would
   be a HID Report ID, so you should include this byte into `size`.
   """
-  @spec read(device :: handle, size::integer) :: read_result
+  @spec read(device :: handle, size :: integer) :: read_result
   def read(device, size) do
     with {:ok, data} <- nif_read(device, size) do
       {:ok, :binary.list_to_bin(data)}
     end
   end
 
-  @doc false
+  @spec read_report(device :: handle, report_id :: integer, size :: integer) :: read_result
   def read_report(device, report_id, size) do
     with {:ok, data} <- nif_read_report(device, report_id, size) do
       {:ok, :binary.list_to_bin(data)}
     end
   end
 
-  defp deserialize_device_info({:hid_device_info, path, vendor_id, product_id,
-                                serial_number, release_number,
-                                manufacturer_string, product_string, usage_page,
-                                usage, interface_number}) do
+  defp deserialize_device_info(
+         {:hid_device_info, path, vendor_id, product_id, serial_number, release_number,
+          manufacturer_string, product_string, usage_page, usage, interface_number}
+       ) do
     %HID.DeviceInfo{
-      path: path |> :binary.list_to_bin,
+      path: path |> :binary.list_to_bin(),
       vendor_id: vendor_id,
       product_id: product_id,
-      serial_number: serial_number |> :binary.list_to_bin,
+      serial_number: serial_number |> :binary.list_to_bin(),
       release_number: release_number,
-      manufacturer_string: manufacturer_string |> :binary.list_to_bin,
-      product_string: product_string |> :binary.list_to_bin,
+      manufacturer_string: manufacturer_string |> :binary.list_to_bin(),
+      product_string: product_string |> :binary.list_to_bin(),
       usage_page: usage_page,
       usage: usage,
       interface_number: interface_number
     }
   end
+
   defp deserialize_device_info(_), do: nil
 
   @doc false
@@ -196,5 +213,10 @@ defmodule HID do
   @doc false
   def nif_read_report(_device, _report_id, _size) do
     raise "NIF read_report/3 not implemented"
+  end
+
+  @doc false
+  def nif_write_report(_device, _data) do
+    raise "NIF write_report/2 not implemented"
   end
 end

@@ -26,7 +26,7 @@ void hid_device_destructor(ErlNifEnv *env, void *res) {
   if (dev->handle) hid_close(dev->handle);
 }
 
-ERL_NIF_TERM make_wchar(ErlNifEnv *env, wchar_t *str) {
+ERL_NIF_TERM make_wchar(ErlNifEnv *env, const wchar_t *str) {
   size_t len = wcslen(str);
   ERL_NIF_TERM *arr = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM) * len);
   for (int i = 0; i < len; i++) arr[i] = enif_make_uint(env, str[i]);
@@ -88,12 +88,14 @@ ERL_NIF_TERM make_info(ErlNifEnv *env, struct hid_device_info *in) {
 }
 
 ERL_NIF_TERM make_error(ErlNifEnv *env, ERL_NIF_TERM error, hid_device *dev) {
+  printf("making error\n");
   context *ctx = (context *)enif_priv_data(env);
   if (!ctx) return NULL;
 
   if (dev) {
-    wchar_t msg = hid_error(dev);
+    const wchar_t* msg = hid_error(dev);
     if (msg) {
+      printf("msg: %ls\n", msg);
       ERL_NIF_TERM msg_term = make_wchar(env, msg);
       if (msg_term) {
         return enif_make_tuple3(env, ctx->error, error, msg_term);
@@ -201,8 +203,40 @@ static ERL_NIF_TERM write(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   } else {
     return enif_make_badarg(env);
   }
+  printf("length: %u\n");
 
-  int bytes = hid_write(dev->handle, buf, len + 1);
+  //int bytes = hid_write(dev->handle, buf, len + 1);
+  int bytes = hid_write(dev->handle, buf, len);
+  enif_free(buf);
+  if (bytes < 0) return make_error(env, ctx->error_write, dev->handle);
+  return enif_make_tuple2(env, ctx->ok, enif_make_int(env, bytes));
+}
+
+static ERL_NIF_TERM write_report(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  unsigned char *buf = NULL;
+  unsigned int len = 0;
+
+  context *ctx = (context *)enif_priv_data(env);
+  if (!ctx) return enif_make_badarg(env);
+  device *dev = NULL;
+  if (!enif_get_resource(env, argv[0], ctx->device, (void *)&dev)) return enif_make_badarg(env);
+
+  if (enif_is_binary(env, argv[1])) {
+    ErlNifBinary bin;
+    if (!enif_inspect_binary(env, argv[1], &bin)) return enif_make_badarg(env);
+    len = bin.size;
+    buf = (unsigned char *)enif_alloc(len);
+    memcpy(buf, bin.data, len);
+  } else if (enif_is_list(env, argv[1])) {
+    if (!enif_get_list_length(env, argv[1], &len)) return enif_make_badarg(env);
+    buf = (unsigned char *)enif_alloc(len + 1);
+    if (!enif_get_string(env, argv[1], (char *)buf, len, ERL_NIF_LATIN1)) return enif_make_badarg(env);
+  } else {
+    return enif_make_badarg(env);
+  }
+
+  //int bytes = hid_send_feature_report(dev->handle, buf, len + 1);
+  int bytes = hid_send_feature_report(dev->handle, buf, len);
   enif_free(buf);
   if (bytes < 0) return make_error(env, ctx->error_write, dev->handle);
   return enif_make_tuple2(env, ctx->ok, enif_make_int(env, bytes));
@@ -288,6 +322,7 @@ static ErlNifFunc funcs[] = {
   {"nif_open", 3, open},
   {"nif_close", 1, close},
   {"nif_write", 2, write},
+  {"nif_write_report", 2, write_report},
   {"nif_read", 2, read},
   {"nif_read_report", 3, read_report}
 };
