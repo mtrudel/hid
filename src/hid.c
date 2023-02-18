@@ -203,7 +203,7 @@ static ERL_NIF_TERM write(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   } else {
     return enif_make_badarg(env);
   }
-  printf("length: %u\n");
+  //printf("length: %u\n");
 
   //int bytes = hid_write(dev->handle, buf, len + 1);
   int bytes = hid_write(dev->handle, buf, len);

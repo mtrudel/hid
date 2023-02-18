@@ -1,6 +1,4 @@
 defmodule Mix.Tasks.Compile.Hid do
-  @shortdoc "Compiles HID library"
-
   def run(_) do
     opts = [stderr_to_stdout: true,
             env: [{"HID_PRIV", Path.join(Mix.Project.app_path, "priv")}]]
