@@ -2,9 +2,11 @@ MIX = mix
 HID_PRIV ?= priv
 
 HIDLIB = hidapi-hidraw
+EXTRA_LDFLAGS =
 
 ifeq ($(shell uname),Darwin)
 HIDLIB = hidapi
+EXTRA_LDFLAGS = -flat_namespace -undefined suppress
 endif
 
 CFLAGS = -g -O3 -fPIC -Wall -Wno-unused-parameter -Wno-missing-field-initializers -Wno-format -Wno-int-conversion
@@ -16,7 +18,7 @@ HIDAPI_PATH = $(shell pkg-config ${HIDLIB} --variable=libdir)
 LIBUSB_PATH = $(shell pkg-config libusb-1.0 --variable=libdir)
 
 CFLAGS  += $(shell pkg-config ${HIDLIB} --cflags)
-LDFLAGS += $(shell pkg-config ${HIDLIB} --libs) -L$(shell pkg-config ${HIDLIB} --variable=libdir) -flat_namespace -undefined suppress
+LDFLAGS += $(shell pkg-config ${HIDLIB} --libs) -L$(shell pkg-config ${HIDLIB} --variable=libdir) ${EXTRA_LDFLAGS}
 
 .PHONY: all mix clean
 
