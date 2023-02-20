@@ -122,13 +122,11 @@ defmodule HID do
   """
   @spec write(device :: handle, data :: binary | list(byte)) :: write_result
   def write(device, data) do
-    IO.inspect({device, data}, label: "HID.write")
     nif_write(device, data)
   end
 
   @spec write_report(device :: handle, data :: binary | list(byte)) :: write_result
   def write_report(device, data) do
-    IO.inspect({device, data}, label: "HID.write_report")
     nif_write_report(device, data)
   end
 
