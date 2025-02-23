@@ -277,6 +277,42 @@ static ERL_NIF_TERM read(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   return enif_make_tuple2(env, ctx->ok, list);
 }
 
+static ERL_NIF_TERM read_timeout(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+  unsigned char *buf = NULL;
+  ERL_NIF_TERM *arr = NULL;
+  unsigned int len = 0;
+  int timeout = 0;
+
+  context *ctx = (context *)enif_priv_data(env);
+  if (!ctx) return enif_make_badarg(env);
+  device *dev = NULL;
+  if (!enif_get_resource(env, argv[0], ctx->device, (void *)&dev)) return enif_make_badarg(env);
+
+  if (!enif_is_number(env, argv[1])) return enif_make_badarg(env);
+  if (!enif_get_uint(env, argv[1], &len)) return enif_make_badarg(env);
+  if (!enif_is_number(env, argv[2])) return enif_make_badarg(env);
+  if (!enif_get_int(env, argv[2], &timeout)) return enif_make_badarg(env);
+
+  if (len <= 0) return enif_make_tuple2(env, ctx->ok, enif_make_list(env, 0));
+
+  buf = enif_alloc(len);
+  int bytes = hid_read_timeout(dev->handle, buf, len, timeout);
+  if (bytes <= 1) {
+    enif_free(buf);
+    if (bytes >= 0) {
+      return enif_make_tuple2(env, ctx->ok, enif_make_list(env, 0));
+    } else {
+      return make_error(env, ctx->error_read, dev->handle);
+    }
+  }
+  arr = enif_alloc(sizeof(ERL_NIF_TERM) * bytes);
+  for (int i = 0; i < bytes; i++) arr[i] = enif_make_uint(env, buf[i]);
+  enif_free(buf);
+  ERL_NIF_TERM list = enif_make_list_from_array(env, arr, bytes);
+  enif_free(arr);
+  return enif_make_tuple2(env, ctx->ok, list);
+}
+
 static ERL_NIF_TERM read_report(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
   unsigned char *buf = NULL;
   ERL_NIF_TERM *arr = NULL;
@@ -324,6 +360,7 @@ static ErlNifFunc funcs[] = {
   {"nif_write", 2, write},
   {"nif_write_report", 2, write_report},
   {"nif_read", 2, read},
+  {"nif_read_timeout", 3, read_timeout},
   {"nif_read_report", 3, read_report}
 };
 

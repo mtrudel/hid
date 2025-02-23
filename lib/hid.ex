@@ -28,7 +28,7 @@ defmodule HID do
 
   @doc false
   def load_nif do
-    path = :filename.join(:code.priv_dir(:hid), 'hid')
+    path = :filename.join(:code.priv_dir(:hid), ~c[hid])
     :ok = :erlang.load_nif(path, 0)
   end
 
@@ -146,6 +146,20 @@ defmodule HID do
     end
   end
 
+  @doc """
+  Reads at most `size` bytes from HID device with a timeout. Note that first byte of data would
+  be a HID Report ID, so you should include this byte into `size`. Timeout specified in
+  milliseconds, or `:infinity``
+  """
+  @spec read_timeout(device :: handle, size :: integer, timeout :: timeout()) :: read_result
+  def read_timeout(device, size, :infinity), do: read_timeout(device, size, -1)
+
+  def read_timeout(device, size, timeout) do
+    with {:ok, data} <- nif_read_timeout(device, size, timeout) do
+      {:ok, :binary.list_to_bin(data)}
+    end
+  end
+
   @spec read_report(device :: handle, report_id :: integer, size :: integer) :: read_result
   def read_report(device, report_id, size) do
     with {:ok, data} <- nif_read_report(device, report_id, size) do
@@ -206,6 +220,11 @@ defmodule HID do
   @doc false
   def nif_read(_device, _size) do
     raise "NIF read/2 not implemented"
+  end
+
+  @doc false
+  def nif_read_timeout(_device, _size, _timeout) do
+    raise "NIF read_timeout/2 not implemented"
   end
 
   @doc false
